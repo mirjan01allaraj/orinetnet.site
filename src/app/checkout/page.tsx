@@ -1,5 +1,6 @@
 import Navbar from "@/components/layout/Navbar";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
+import { Suspense } from "react";
 
 export default function CheckoutPage() {
   return (
@@ -12,7 +13,9 @@ export default function CheckoutPage() {
         </p>
 
         <div className="mt-8">
-          <CheckoutForm />
+          <Suspense fallback={<div>Loading checkout…</div>}>
+            <CheckoutForm />
+          </Suspense>
         </div>
       </main>
     </>
