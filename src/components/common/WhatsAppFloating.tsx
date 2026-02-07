@@ -1,6 +1,6 @@
 export default function WhatsAppFloating(){
   const phone = "355686666419"; // change to your business number
-  const url = `https://wa.me/${phone}?text=Pershendetje!%20Dua%20te%20aplikoj%20per%20internet.`;
+  const url = `https://wa.me/${phone}?text=Pershendetje!%20Po%20ju%kontaktoj%20per.`;
   return (
     <a
       href={url}
