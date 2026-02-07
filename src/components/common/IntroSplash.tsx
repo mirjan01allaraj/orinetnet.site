@@ -3,116 +3,45 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
-  durationMs?: number; // total time before auto-close
-  onDone?: () => void;
+  durationMs?: number; // total splash duration
+  onDone?: () => void; // called when animation ends
 };
 
-function cx(...arr: Array<string | false | undefined>) {
-  return arr.filter(Boolean).join(" ");
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
+function easeOutCubic(t: number) {
+  return 1 - Math.pow(1 - t, 3);
+}
+function easeInOut(t: number) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const apply = () => setReduced(!!mq.matches);
-    apply();
-    mq.addEventListener?.("change", apply);
-    return () => mq.removeEventListener?.("change", apply);
-  }, []);
-  return reduced;
-}
-
-function Ring({ p }: { p: number }) {
-  // p: 0..1
-  const r = 18;
-  const c = 2 * Math.PI * r;
-  const dash = Math.max(0, Math.min(c, c * p));
-  return (
-    <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
-      <circle
-        cx="22"
-        cy="22"
-        r={r}
-        fill="none"
-        stroke="rgba(255,255,255,0.10)"
-        strokeWidth="4"
-      />
-      <circle
-        cx="22"
-        cy="22"
-        r={r}
-        fill="none"
-        stroke="rgba(39,188,216,0.95)"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeDasharray={`${dash} ${c - dash}`}
-        transform="rotate(-90 22 22)"
-      />
-    </svg>
-  );
-}
-
-export default function IntroSplash({ durationMs = 2200, onDone }: Props) {
-  const reduced = usePrefersReducedMotion();
-
-  const [phase, setPhase] = useState<"in" | "out">("in");
-  const [progress, setProgress] = useState(0);
-
+export default function IntroSplash({ durationMs = 2400, onDone }: Props) {
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
-  const doneRef = useRef(false);
 
-  const particles = useMemo(() => {
-    // deterministic-ish random layout (but only on client; splash is client-only)
-    const count = 22;
-    return Array.from({ length: count }).map((_, i) => {
-      const size = 3 + Math.random() * 10;
-      const left = Math.random() * 100;
-      const top = Math.random() * 100;
-      const dur = 3.8 + Math.random() * 4.2;
-      const delay = Math.random() * 1.6;
-      const drift = 14 + Math.random() * 26;
-      const alpha = 0.12 + Math.random() * 0.22;
-      const isBrand = i % 3 !== 0; // more turquoise than white
-      return { size, left, top, dur, delay, drift, alpha, isBrand };
-    });
-  }, []);
+  // 0..1 progress of the gauge
+  const [p, setP] = useState(0);
 
   useEffect(() => {
-    if (reduced) {
-      // minimal: show briefly then fade
-      const t1 = window.setTimeout(() => setPhase("out"), Math.max(350, durationMs - 450));
-      const t2 = window.setTimeout(() => {
-        if (doneRef.current) return;
-        doneRef.current = true;
-        onDone?.();
-      }, durationMs);
-      return () => {
-        window.clearTimeout(t1);
-        window.clearTimeout(t2);
-      };
-    }
-
     startRef.current = performance.now();
 
-    const tick = (t: number) => {
-      const elapsed = t - startRef.current;
-      const p = Math.max(0, Math.min(1, elapsed / durationMs));
-      setProgress(p);
+    const tick = (now: number) => {
+      const t = clamp((now - startRef.current) / durationMs, 0, 1);
 
-      // start fade-out near end
-      if (p >= 0.82 && phase !== "out") setPhase("out");
+      // Hold a tiny bit at start, then accelerate like a “speed test”
+      const shaped =
+        t < 0.08
+          ? easeOutCubic(t / 0.08) * 0.12
+          : t < 0.78
+          ? 0.12 + easeInOut((t - 0.08) / 0.7) * 0.78
+          : 0.90 + easeOutCubic((t - 0.78) / 0.22) * 0.10;
 
-      if (p >= 1) {
-        if (!doneRef.current) {
-          doneRef.current = true;
-          onDone?.();
-        }
-        return;
-      }
+      setP(clamp(shaped, 0, 1));
 
-      rafRef.current = requestAnimationFrame(tick);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+      else onDone?.();
     };
 
     rafRef.current = requestAnimationFrame(tick);
@@ -121,244 +50,240 @@ export default function IntroSplash({ durationMs = 2200, onDone }: Props) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [durationMs, onDone, reduced]);
+  }, [durationMs, onDone]);
+
+  // speed from 0..1000 Mbps (== 1 Gbps)
+  const speedMbps = useMemo(() => Math.round(p * 1000), [p]);
+
+  const speedLabel = useMemo(() => {
+    // switch to Gbps near the end (feels premium)
+    if (speedMbps >= 900) return `${(speedMbps / 1000).toFixed(1)} Gbps`;
+    return `${speedMbps} Mbps`;
+  }, [speedMbps]);
+
+  // Gauge geometry
+  const size = 320; // base viewbox
+  const cx = size / 2;
+  const cy = size / 2;
+
+  // Make it a speedometer: not full circle (e.g. 260° sweep)
+  const startAngle = 140; // degrees
+  const endAngle = 400; // 140 + 260
+  const sweep = endAngle - startAngle;
+
+  const r = 110;
+  const stroke = 14;
+
+  function polarToCartesian(angleDeg: number, radius: number) {
+    const a = ((angleDeg - 90) * Math.PI) / 180;
+    return { x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) };
+  }
+
+  function describeArc(a0: number, a1: number, radius: number) {
+    const start = polarToCartesian(a1, radius);
+    const end = polarToCartesian(a0, radius);
+    const largeArcFlag = a1 - a0 <= 180 ? "0" : "1";
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+  }
+
+  const arcBg = describeArc(startAngle, endAngle, r);
+  const arcFill = describeArc(startAngle, startAngle + sweep * p, r);
+
+  // Needle
+  const needleAngle = startAngle + sweep * p;
+  const needleLen = 90;
+  const needle = polarToCartesian(needleAngle, needleLen);
+
+  // ticks
+  const majorTicks = 8; // shows 0..1Gbps nicely
+  const minorPerMajor = 4;
+
+  const ticks = [];
+  for (let i = 0; i <= majorTicks * minorPerMajor; i++) {
+    const isMajor = i % minorPerMajor === 0;
+    const tp = i / (majorTicks * minorPerMajor);
+    const ang = startAngle + sweep * tp;
+
+    const r1 = r + (isMajor ? 14 : 10);
+    const r0 = r + (isMajor ? 30 : 22);
+    const p0 = polarToCartesian(ang, r0);
+    const p1 = polarToCartesian(ang, r1);
+
+    ticks.push(
+      <line
+        key={i}
+        x1={p0.x}
+        y1={p0.y}
+        x2={p1.x}
+        y2={p1.y}
+        stroke={isMajor ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.25)"}
+        strokeWidth={isMajor ? 2 : 1.5}
+        strokeLinecap="round"
+      />
+    );
+  }
+
+  // labels (0, 250, 500, 750, 1G)
+  const labelStops = [
+    { tp: 0, text: "0" },
+    { tp: 0.25, text: "250" },
+    { tp: 0.5, text: "500" },
+    { tp: 0.75, text: "750" },
+    { tp: 1, text: "1G" },
+  ];
+
+  const labels = labelStops.map((s, idx) => {
+    const ang = startAngle + sweep * s.tp;
+    const pos = polarToCartesian(ang, r + 52);
+    return (
+      <text
+        key={idx}
+        x={pos.x}
+        y={pos.y}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={12}
+        fontWeight={700}
+        fill="rgba(255,255,255,0.55)"
+      >
+        {s.text}
+      </text>
+    );
+  });
 
   return (
     <div
-      className={cx(
-        "fixed inset-0 z-[100] grid place-items-center",
-        "bg-[var(--bg)]",
-        phase === "out" ? "animate-introFadeOut" : "animate-introFadeIn"
-      )}
-      aria-label="Intro splash"
-      role="dialog"
-      aria-modal="true"
+      className="fixed inset-0 z-[9999] grid place-items-center"
+      style={{
+        background:
+          "radial-gradient(900px 500px at 20% 10%, rgba(39,188,216,.22), transparent 60%)," +
+          "radial-gradient(900px 500px at 80% 20%, rgba(39,188,216,.12), transparent 55%)," +
+          "linear-gradient(180deg, rgba(0,0,0,0.65), rgba(11,12,16,1))",
+      }}
     >
-      {/* Background: soft glows + grid + scanline */}
-      <div className="absolute inset-0 pointer-events-none">
-        {/* glow blobs */}
-        <div
-          className="absolute inset-0 opacity-70"
-          style={{
-            background:
-              "radial-gradient(900px 540px at 30% 20%, rgba(39,188,216,0.22), transparent 60%)," +
-              "radial-gradient(700px 520px at 70% 70%, rgba(168,85,247,0.16), transparent 60%)," +
-              "radial-gradient(800px 460px at 60% 10%, rgba(255,255,255,0.06), transparent 55%)",
-          }}
-        />
-
-        {/* neon grid */}
-        <div className="absolute inset-0 opacity-[0.32] bg-introGrid" />
-
-        {/* scanline */}
-        {!reduced && <div className="absolute inset-0 bg-introScanline opacity-[0.18]" />}
-
-        {/* fine noise */}
-        <div className="absolute inset-0 bg-introNoise opacity-[0.08]" />
-
-        {/* floating particles */}
-        {!reduced &&
-          particles.map((p, idx) => (
-            <span
-              key={idx}
-              className="absolute rounded-full blur-[1px]"
-              style={{
-                left: `${p.left}%`,
-                top: `${p.top}%`,
-                width: `${p.size}px`,
-                height: `${p.size}px`,
-                background: p.isBrand ? "rgba(39,188,216,1)" : "rgba(255,255,255,1)",
-                opacity: p.alpha,
-                boxShadow: p.isBrand
-                  ? "0 0 18px rgba(39,188,216,0.55)"
-                  : "0 0 18px rgba(255,255,255,0.25)",
-                animation: `introFloat ${p.dur}s ease-in-out ${p.delay}s infinite`,
-                transform: `translateY(${p.drift}px)`,
-              }}
-            />
-          ))}
-      </div>
-
-      {/* Center: glass card */}
-      <div
-        className={cx(
-          "relative w-[min(560px,92vw)] rounded-[28px] overflow-hidden",
-          "border border-white/10",
-          "bg-white/[0.06] backdrop-blur-2xl backdrop-saturate-150",
-          "shadow-[0_40px_140px_rgba(0,0,0,0.75)]"
-        )}
-      >
-        {/* stroke overlay */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-0 bg-introStroke opacity-90" />
-          <div className="absolute inset-0 bg-introVignette opacity-90" />
-        </div>
-
-        <div className="relative z-10 px-7 py-8 md:px-10 md:py-10">
-          {/* mini top label */}
-          <div className="text-[11px] tracking-[0.35em] uppercase text-white/45">
+      <div className="relative w-full max-w-[520px] px-6">
+        {/* Title */}
+        <div className="text-center mb-8">
+          <div className="text-[13px] tracking-[0.35em] uppercase text-white/45">
             ORIENT GROUP
           </div>
-
-          {/* Logo */}
-          <div className="mt-5">
-            <div className={cx("text-4xl md:text-5xl font-extrabold leading-none", !reduced && "animate-introGlowPulse")}>
-              <span className="text-white">ORIENT</span>{" "}
-              <span className="text-[var(--brand)] drop-shadow-[0_0_24px_rgba(39,188,216,0.65)]">
-                NET
-              </span>
-            </div>
-
-            {/* subtle tech subtitle */}
-            <div className="mt-3 text-white/55 text-sm md:text-base max-w-[52ch]">
-              Fiber optike • Stabilitet • Suport 24/7
-            </div>
+          <div className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight">
+            <span className="text-white">ORIENT</span>{" "}
+            <span className="text-[var(--brand)]">NET</span>
           </div>
+        </div>
 
-          {/* Divider */}
-          <div className="mt-7 h-px w-full bg-white/10" />
-
-          {/* Bottom row: “initializing” + ring */}
-          <div className="mt-6 flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-white/80 font-semibold tracking-wide">
-                Initializing network layer…
-              </div>
-              <div className="mt-1 text-xs text-white/45">
-                {Math.round(progress * 100)}% • secure handshake
-              </div>
-
-              {/* progress bar (soft) */}
-              <div className="mt-3 h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${Math.round(progress * 100)}%`,
-                    background:
-                      "linear-gradient(90deg, rgba(39,188,216,0.2), rgba(39,188,216,0.95), rgba(255,255,255,0.25))",
-                    boxShadow: "0 0 30px rgba(39,188,216,0.35)",
-                    transition: "width 120ms linear",
-                  }}
+        {/* Big speed meter */}
+        <div className="relative mx-auto w-[320px] max-w-full aspect-square">
+          <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full">
+            <defs>
+              <filter id="glowCyan" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feColorMatrix
+                  in="blur"
+                  type="matrix"
+                  values="
+                    1 0 0 0 0
+                    0 1 0 0 0
+                    0 0 1 0 0
+                    0 0 0 0.9 0"
+                  result="glow"
                 />
-              </div>
-            </div>
+                <feMerge>
+                  <feMergeNode in="glow" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
 
-            {/* ring */}
-            <div className="shrink-0">
-              <div className="grid place-items-center rounded-2xl border border-white/10 bg-black/20 p-2">
-                <Ring p={progress} />
+              <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(39,188,216,0.45)" />
+                <stop offset="55%" stopColor="rgba(39,188,216,0.95)" />
+                <stop offset="100%" stopColor="rgba(255,255,255,0.7)" />
+              </linearGradient>
+
+              <radialGradient id="centerGlow" cx="50%" cy="50%" r="60%">
+                <stop offset="0%" stopColor="rgba(39,188,216,0.28)" />
+                <stop offset="60%" stopColor="rgba(39,188,216,0.08)" />
+                <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+              </radialGradient>
+            </defs>
+
+            {/* soft inner glow */}
+            <circle cx={cx} cy={cy} r={92} fill="url(#centerGlow)" />
+
+            {/* ticks + labels */}
+            <g>{ticks}</g>
+            <g>{labels}</g>
+
+            {/* background arc */}
+            <path
+              d={arcBg}
+              fill="none"
+              stroke="rgba(255,255,255,0.14)"
+              strokeWidth={stroke}
+              strokeLinecap="round"
+            />
+
+            {/* filled arc */}
+            <path
+              d={arcFill}
+              fill="none"
+              stroke="url(#arcGrad)"
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              filter="url(#glowCyan)"
+            />
+
+            {/* needle */}
+            <line
+              x1={cx}
+              y1={cy}
+              x2={needle.x}
+              y2={needle.y}
+              stroke="rgba(255,255,255,0.75)"
+              strokeWidth={3}
+              strokeLinecap="round"
+              filter="url(#glowCyan)"
+            />
+            <circle
+              cx={cx}
+              cy={cy}
+              r={10}
+              fill="rgba(39,188,216,0.9)"
+              filter="url(#glowCyan)"
+            />
+            <circle cx={cx} cy={cy} r={4.5} fill="rgba(0,0,0,0.55)" />
+          </svg>
+
+          {/* Center readout */}
+          <div className="absolute inset-0 grid place-items-center text-center">
+            <div>
+              <div className="text-white/60 text-xs tracking-[0.22em] uppercase">
+                Speed Test
+              </div>
+              <div className="mt-2 text-4xl sm:text-5xl font-extrabold">
+                <span className="text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.6)]">
+                  {speedLabel}
+                </span>
+              </div>
+              <div className="mt-2 text-white/45 text-xs">
+                0 Mbps → 1 Gbps
               </div>
             </div>
           </div>
         </div>
 
-        {/* bottom neon edge */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-introEdge" />
+        {/* tiny loading hint */}
+        <div className="mt-8 text-center text-white/40 text-xs">
+          Po ngarkohet…
+        </div>
+
+        {/* subtle bottom glow */}
+        <div
+          className="pointer-events-none absolute left-1/2 -translate-x-1/2 -bottom-10 h-20 w-[80%] blur-2xl opacity-70"
+          style={{ background: "rgba(39,188,216,0.18)" }}
+        />
       </div>
-
-      {/* Local CSS (scoped) */}
-      <style jsx>{`
-        .bg-introGrid {
-          background-image:
-            linear-gradient(rgba(39,188,216,0.12) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(39,188,216,0.10) 1px, transparent 1px);
-          background-size: 54px 54px;
-          mask-image: radial-gradient(circle at 50% 45%, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
-        }
-
-        .bg-introStroke {
-          background: linear-gradient(
-            135deg,
-            rgba(255,255,255,0.18),
-            rgba(255,255,255,0.06) 35%,
-            rgba(39,188,216,0.12) 60%,
-            rgba(255,255,255,0.07)
-          );
-          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          padding: 1px;
-          border-radius: 28px;
-        }
-
-        .bg-introVignette {
-          background:
-            radial-gradient(700px 260px at 50% 0%, rgba(39,188,216,0.12), transparent 62%),
-            radial-gradient(600px 320px at 50% 110%, rgba(0,0,0,0.55), transparent 65%);
-        }
-
-        .bg-introEdge {
-          background: linear-gradient(
-            90deg,
-            rgba(39,188,216,0),
-            rgba(39,188,216,0.95),
-            rgba(255,255,255,0.15),
-            rgba(39,188,216,0.95),
-            rgba(39,188,216,0)
-          );
-          filter: blur(0.2px);
-        }
-
-        .bg-introNoise {
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E");
-          background-size: 220px 220px;
-          mix-blend-mode: overlay;
-        }
-
-        .bg-introScanline {
-          background: repeating-linear-gradient(
-            to bottom,
-            rgba(255,255,255,0.08),
-            rgba(255,255,255,0.08) 1px,
-            transparent 1px,
-            transparent 8px
-          );
-          animation: introScan 2.6s linear infinite;
-          mask-image: radial-gradient(circle at 50% 35%, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
-        }
-
-        @keyframes introScan {
-          0% { transform: translateY(-10px); }
-          100% { transform: translateY(10px); }
-        }
-
-        @keyframes introFloat {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-18px); }
-        }
-
-        /* Fade in/out wrapper */
-        :global(.animate-introFadeIn) {
-          animation: introFadeIn 260ms ease-out forwards;
-        }
-        :global(.animate-introFadeOut) {
-          animation: introFadeOut 520ms ease-in forwards;
-        }
-        @keyframes introFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes introFadeOut {
-          0% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-
-        /* Logo pulse (subtle) */
-        :global(.animate-introGlowPulse) {
-          animation: introGlowPulse 1.7s ease-in-out infinite;
-        }
-        @keyframes introGlowPulse {
-          0%, 100% {
-            filter: drop-shadow(0 0 0 rgba(39,188,216,0.0));
-            transform: translateY(0px);
-          }
-          50% {
-            filter: drop-shadow(0 0 18px rgba(39,188,216,0.18));
-            transform: translateY(-1px);
-          }
-        }
-      `}</style>
     </div>
   );
 }
