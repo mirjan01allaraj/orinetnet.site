@@ -94,7 +94,8 @@ export default function IntroSplash({ durationMs = 2400, onDone }: Props) {
   const ticks = useMemo(() => {
     const majorTicks = 8;
     const minorPerMajor = 4;
-    const arr: JSX.Element[] = [];
+    const arr: React.ReactElement[] = [];
+
 
     for (let i = 0; i <= majorTicks * minorPerMajor; i++) {
       const isMajor = i % minorPerMajor === 0;
