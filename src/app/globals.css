@@ -1,0 +1,700 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{
+  --bg:#0b0c10;
+  --card:#111827;
+  --text:#f5f5f5;
+  --muted:#9ca3af;
+  --brand:#27bcd8;
+  --border: rgba(255,255,255,0.10);
+
+  /* iOS glass system (used by Plans + Features) */
+  --glass-bg: rgba(17, 24, 39, 0.38);
+  --glass-stroke: rgba(255,255,255,0.14);
+  --glass-stroke-2: rgba(255,255,255,0.06);
+  --glass-hi: rgba(255,255,255,0.22);
+  --glass-shadow: 0 28px 90px rgba(0,0,0,0.62);
+}
+
+html, body { height:100%; }
+html { scroll-behavior: smooth; }
+
+body{
+  background: var(--bg);
+  color: var(--text);
+}
+
+a{ color: inherit; text-decoration:none; }
+
+/* =========================
+   Plans: floating animation (desktop only)
+   ========================= */
+
+@keyframes floatyGrow {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.02); }
+}
+@keyframes floatyGrowSoft {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.012); }
+}
+@keyframes floatyGrowMicro {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.006); }
+}
+
+@media (min-width: 1024px) {
+  .floaty, .floaty2, .floaty3 {
+    transform-origin: bottom;
+    will-change: transform;
+  }
+
+  .floaty  { animation: floatyGrow 6s ease-in-out infinite; }
+  .floaty2 { animation: floatyGrowSoft 7.5s ease-in-out infinite; }
+  .floaty3 { animation: floatyGrowMicro 9s ease-in-out infinite; }
+}
+
+/* hide scrollbars (used for swipe rows) */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* =========================
+   Liquid fill pills (Hero trust chips)
+   ========================= */
+
+.pill-liquid {
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(16, 20, 28, 0.55);
+  isolation: isolate;
+}
+
+/* base liquid layer */
+.pill-liquid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  z-index: 0;
+
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pill) 85%, transparent),
+    color-mix(in srgb, var(--pill) 55%, white 10%),
+    color-mix(in srgb, var(--pill) 85%, transparent)
+  );
+
+  opacity: 0.18;
+  transform: scaleX(0);
+  transform-origin: left;
+
+  filter: saturate(1.12) contrast(1.06);
+}
+
+/* glass shine */
+.pill-liquid::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.20),
+    rgba(255,255,255,0.06) 45%,
+    rgba(255,255,255,0.00)
+  );
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pill-liquid > span {
+  position: relative;
+  z-index: 1;
+}
+
+/* glow when active */
+.pill-liquid.filled,
+.pill-liquid.filling,
+.pill-liquid.draining {
+  border-color: color-mix(in srgb, var(--pill) 70%, transparent);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--pill) 50%, transparent),
+    0 0 55px color-mix(in srgb, var(--pill) 18%, transparent);
+}
+
+/* shimmer + waves only while active */
+.pill-liquid.filling::before,
+.pill-liquid.filled::before,
+.pill-liquid.draining::before {
+  background:
+    linear-gradient(
+      110deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.14) 35%,
+      rgba(255,255,255,0.22) 50%,
+      rgba(255,255,255,0.14) 65%,
+      rgba(255,255,255,0) 100%
+    ),
+    radial-gradient(
+      18px 10px at 20px 8px,
+      rgba(255,255,255,0.18) 0%,
+      rgba(255,255,255,0) 70%
+    ),
+    radial-gradient(
+      22px 12px at 60px 10px,
+      rgba(255,255,255,0.14) 0%,
+      rgba(255,255,255,0) 72%
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--pill) 85%, transparent),
+      color-mix(in srgb, var(--pill) 55%, white 10%),
+      color-mix(in srgb, var(--pill) 85%, transparent)
+    );
+
+  background-size:
+    220% 100%,
+    120px 24px,
+    160px 28px,
+    100% 100%;
+
+  background-position:
+    -140% 0,
+    0 0,
+    0 0,
+    0 0;
+}
+
+/* filling */
+.pill-liquid.filling::before {
+  transform-origin: left;
+  animation:
+    pillFillNatural var(--fill-ms, 700ms) cubic-bezier(.2,.9,.2,1) forwards,
+    pillShimmer 1.2s ease-in-out infinite,
+    pillWaves 1.8s ease-in-out infinite,
+    pillSurfaceWobble 2.2s ease-in-out infinite;
+  opacity: 0.30;
+}
+
+/* hold */
+.pill-liquid.filled::before {
+  transform: scaleX(1);
+  opacity: 0.30;
+  animation:
+    pillShimmer 1.2s ease-in-out infinite,
+    pillWaves 1.8s ease-in-out infinite,
+    pillSurfaceWobble 2.2s ease-in-out infinite;
+}
+
+/* drain */
+.pill-liquid.draining::before {
+  transform-origin: right;
+  animation:
+    pillDrainNatural var(--fill-ms, 700ms) ease-in-out forwards,
+    pillShimmer 1.2s ease-in-out infinite,
+    pillWaves 1.8s ease-in-out infinite,
+    pillSurfaceWobble 2.2s ease-in-out infinite;
+  opacity: 0.28;
+}
+
+@keyframes pillFillNatural {
+  0%   { transform: scaleX(0); }
+  60%  { transform: scaleX(1.02); }
+  100% { transform: scaleX(1); }
+}
+@keyframes pillDrainNatural {
+  0%   { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
+}
+@keyframes pillShimmer {
+  0%   { background-position: -140% 0, 0 0, 0 0, 0 0; }
+  100% { background-position:  140% 0, 0 0, 0 0, 0 0; }
+}
+@keyframes pillWaves {
+  0%, 100% {
+    background-position: -140% 0, 0 0, 0 0, 0 0;
+  }
+  50% {
+    background-position: 140% 0, 60px 2px, 90px 1px, 0 0;
+  }
+}
+@keyframes pillSurfaceWobble {
+  0%, 100% { filter: saturate(1.08) brightness(1); }
+  50%      { filter: saturate(1.18) brightness(1.05); }
+}
+
+/* =========================
+   HERO FLIP CARD (3D)
+   ========================= */
+
+.hero-flip {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  perspective: 1200px;
+}
+
+.hero-flip-inner {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  transform-style: preserve-3d;
+  transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (min-width: 1024px) {
+  .hero-flip-inner { min-height: 460px; }
+}
+
+.hero-flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.hero-flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.hero-flip-back { transform: rotateY(180deg); }
+
+.hero-flip-front,
+.hero-flip-back {
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.55);
+}
+
+/* =========================
+   iOS Liquid Glass cards (shared by Plans + Features)
+   ========================= */
+
+.glass-card{
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-stroke);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: var(--glass-shadow);
+  transform: translateZ(0);
+}
+
+/* gradient stroke */
+.glass-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius: 22px;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.24),
+    rgba(255,255,255,0.06) 35%,
+    rgba(39,188,216,0.10) 60%,
+    rgba(255,255,255,0.08)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events:none;
+  opacity: .85;
+}
+
+/* specular top highlight */
+.glass-card::after{
+  content:"";
+  position:absolute;
+  left:-20%;
+  top:-45%;
+  width:140%;
+  height:80%;
+  background: radial-gradient(
+    closest-side at 50% 60%,
+    rgba(255,255,255,0.18),
+    rgba(255,255,255,0.06) 45%,
+    rgba(255,255,255,0.00) 70%
+  );
+  transform: rotate(-6deg);
+  pointer-events:none;
+  opacity: .9;
+}
+
+/* inner vignette for depth */
+.glass-vignette{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(800px 260px at 50% 10%, rgba(39,188,216,0.10), transparent 65%),
+    radial-gradient(700px 320px at 50% 95%, rgba(0,0,0,0.38), transparent 65%);
+  opacity: .85;
+}
+
+/* hover lift */
+@media (hover:hover){
+  .glass-hover{
+    transition: transform .35s ease, box-shadow .35s ease;
+  }
+  .glass-hover:hover{
+    transform: translateY(-10px);
+    box-shadow: 0 34px 105px rgba(0,0,0,0.72);
+  }
+}
+
+/* recommended highlight */
+.glass-reco{
+  border-color: rgba(39,188,216,0.55);
+  box-shadow:
+    0 0 0 2px rgba(39,188,216,0.42),
+    0 0 70px rgba(39,188,216,0.42),
+    0 30px 110px rgba(0,0,0,0.75);
+}
+.glass-reco-topglow{
+  position:absolute;
+  left:50%;
+  top:-30px;
+  width: 260px;
+  height: 120px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(39,188,216,0.70), rgba(39,188,216,0.0));
+  filter: blur(18px);
+  opacity: .95;
+  pointer-events:none;
+}
+
+/* slightly stronger blur on mobile */
+@media (max-width: 1023px){
+  .glass-card{
+    backdrop-filter: blur(20px) saturate(170%);
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+  }
+}
+
+/* =========================
+   FEATURES: Desktop card base (GLASS-driven)
+   ========================= */
+
+.feature-card{
+  position: relative;
+  border-radius: 22px;
+  padding: 22px;
+  min-height: 190px;
+  overflow: hidden;
+
+  /* let .glass-card define the visuals */
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* subtle inner glow (kept) */
+.feature-card::before{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  background: radial-gradient(700px 220px at 40% 0%, rgba(39,188,216,0.10), transparent 55%);
+  pointer-events:none;
+  opacity: 0.9;
+}
+
+/* desktop checkbox (animated later) */
+.feature-checkbox {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.12);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.feature-checkbox::after{
+  content:"✓";
+  font-weight: 900;
+  font-size: 22px;
+  color: rgba(249,115,22,0.0);
+  transform: scale(0.65);
+  opacity: 0;
+}
+
+/* entrance + check sequence (desktop only) */
+@media (min-width: 1024px) {
+  .feature-drop,
+  .feature-slide {
+    opacity: 0;
+    transform: translateY(-34px) scale(0.985);
+    filter: blur(2px);
+  }
+
+  .features-inview .feature-drop {
+    animation: featDropIn 720ms cubic-bezier(.2,.9,.2,1) forwards;
+    animation-delay: var(--card-delay, 0s);
+  }
+
+  .features-inview .feature-slide {
+    transform: translateX(-34px) translateY(-12px) scale(0.985);
+    animation: featSlideIn 720ms cubic-bezier(.2,.9,.2,1) forwards;
+    animation-delay: var(--card-delay, 0s);
+  }
+
+  .features-inview .feature-checkbox::after{
+    animation: featCheckPop 520ms cubic-bezier(.2,.9,.2,1) forwards;
+    animation-delay: var(--check-delay, 6s);
+  }
+
+  .features-inview .feature-checkbox{
+    animation: featCheckGlow 520ms ease-out forwards;
+    animation-delay: var(--check-delay, 6s);
+  }
+}
+
+@keyframes featDropIn {
+  0%   { opacity: 0; transform: translateY(-42px) scale(0.98); filter: blur(3px); }
+  65%  { opacity: 1; transform: translateY(6px) scale(1.01); filter: blur(0px); }
+  100% { opacity: 1; transform: translateY(0px) scale(1); filter: blur(0px); }
+}
+@keyframes featSlideIn {
+  0%   { opacity: 0; transform: translateX(-42px) translateY(-10px) scale(0.98); filter: blur(3px); }
+  70%  { opacity: 1; transform: translateX(6px) translateY(2px) scale(1.01); filter: blur(0px); }
+  100% { opacity: 1; transform: translateX(0px) translateY(0px) scale(1); filter: blur(0px); }
+}
+@keyframes featCheckPop {
+  0%   { opacity: 0; transform: scale(0.55); color: rgba(249,115,22,0.0); }
+  60%  { opacity: 1; transform: scale(1.15); color: rgba(249,115,22,1); }
+  100% { opacity: 1; transform: scale(1.0); color: rgba(249,115,22,1); }
+}
+@keyframes featCheckGlow {
+  0%   { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.10); }
+  60%  { box-shadow: 0 0 22px rgba(249,115,22,0.65), 0 0 60px rgba(249,115,22,0.25); border-color: rgba(249,115,22,0.50); }
+  100% { box-shadow: 0 0 18px rgba(249,115,22,0.45), 0 0 50px rgba(249,115,22,0.18); border-color: rgba(249,115,22,0.35); }
+}
+
+/* =========================
+   FEATURES: MOBILE SNAP SLIDER (3 pages)
+   ========================= */
+
+.feature-snap-scroller{
+  position: relative;
+  overflow-x: auto;
+  display: flex;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 6px;
+}
+.feature-snap-scroller::-webkit-scrollbar{ display:none; }
+
+.feature-snap-page{
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  padding: 0 2px;
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 14px;
+}
+
+/* ✅ this is the mobile card size (uses glass-card visuals) */
+.feature-glass-card{
+  width: 100%;
+  min-height: 150px;
+  padding: 18px;
+  border-radius: 22px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ✅ IMPORTANT: kill old mobile solid background styles (if any remain) */
+.feature-card-mobile{
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ✅ mobile checkbox */
+.feature-checkbox-mobile{
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.10);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+  display: grid;
+  place-items: center;
+}
+.feature-checkbox-mobile::after{
+  content:"✓";
+  position: absolute;
+  top: 1px;
+  left: 10px;
+  font-weight: 900;
+  font-size: 24px;
+  color: rgba(249,115,22,1);
+  text-shadow:
+    0 0 10px rgba(249,115,22,0.85),
+    0 0 22px rgba(249,115,22,0.45);
+}
+
+/* unify checkbox look (desktop + mobile) */
+.feature-checkbox,
+.feature-checkbox-mobile{
+  background: rgba(0,0,0,0.10);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.05),
+    0 10px 22px rgba(0,0,0,0.35);
+}
+
+/* =========================
+   Dots: synced (NO animation)
+   ========================= */
+
+.feature-dot{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(39,188,216,0.30);
+  box-shadow: 0 0 0 rgba(39,188,216,0);
+  transition: transform 250ms ease, background 250ms ease, box-shadow 250ms ease;
+}
+.feature-dot.is-active{
+  background: rgba(39,188,216,0.95);
+  transform: scale(1.25);
+  box-shadow: 0 0 16px rgba(39,188,216,0.75);
+}
+/* =========================
+   FAQ: iOS Liquid Glass panel
+   ========================= */
+
+.faq-panel{
+  position: relative;
+  overflow: hidden;
+  border-radius: 34px;
+  padding: 56px 42px;
+  min-height: 640px;
+}
+
+@media (max-width: 1023px){
+  .faq-panel{
+    padding: 44px 22px;
+    border-radius: 28px;
+    min-height: auto;
+  }
+}
+
+/* purple glow blob (left side) */
+.faq-left-glow{
+  position: absolute;
+  left: -22%;
+  top: -10%;
+  width: 58%;
+  height: 120%;
+  background: radial-gradient(
+    closest-side at 60% 45%,
+    rgba(168,85,247,0.32),
+    rgba(168,85,247,0.14) 40%,
+    rgba(168,85,247,0.00) 72%
+  );
+  filter: blur(6px);
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+/* column wrapper */
+.faq-col{
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* each row */
+.faq-row{
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+
+.faq-q{
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+  color: rgba(255,255,255,0.92);
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+@media (max-width: 1023px){
+  .faq-q{
+    font-size: 18px;
+  }
+}
+
+.faq-q.is-open{
+  color: rgba(249,115,22,0.95); /* orange like your refs */
+}
+
+.faq-chev{
+  color: rgba(255,255,255,0.85);
+  transition: color 250ms ease;
+}
+.faq-chev.is-open{
+  color: rgba(249,115,22,0.95);
+}
+
+.faq-a{
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 360ms ease;
+}
+
+.faq-a.is-open{
+  max-height: 260px;
+}
+
+.faq-a-inner{
+  padding: 14px 0 2px;
+  color: rgba(255,255,255,0.58);
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 44ch;
+}
+/* FAQ typing caret */
+.faq-caret{
+  display: inline-block;
+  width: 10px;
+  height: 1.2em;
+  margin-left: 3px;
+  transform: translateY(2px);
+  background: rgba(255,255,255,0.75);
+  animation: faqCaretBlink 0.9s step-end infinite;
+}
+
+@keyframes faqCaretBlink{
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Safety: never show hero flip card on mobile */
+@media (max-width: 767px){
+  .hero-flip{ display: none !important; }
+}
+@media (min-width: 768px){
+  .hero-flip{ display: block; }
+}

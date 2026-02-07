@@ -1,0 +1,87 @@
+{
+  "plans": [
+    {
+      "slug": "standarte",
+      "name": "Paketa Standarte",
+      "priceAll": 1300,
+      "unit": "/muaj",
+      "accentLabel": "",
+      "topBadge": "",
+      "down": 100,
+      "up": 10,
+      "features": [
+        "100 Mbps Download",
+        "10 Mbps Upload",
+        "Instalimi Falas",
+        "Router WiFi 2.4G & 5G"
+      ]
+    },
+    {
+      "slug": "smart",
+      "name": "Paketa Smart",
+      "priceAll": 1400,
+      "unit": "/muaj",
+      "accentLabel": "",
+      "topBadge": "",
+      "down": 200,
+      "up": 20,
+      "features": [
+        "200 Mbps Download",
+        "20 Mbps Upload",
+        "Instalimi Falas",
+        "Router WiFi 2.4G & 5G"
+      ]
+    },
+    {
+      "slug": "turbo",
+      "name": "Paketa Turbo",
+      "priceAll": 1500,
+      "unit": "/muaj",
+      "accentLabel": "",
+      "topBadge": "MË E PËLQYERA",
+      "down": 300,
+      "up": 30,
+      "features": [
+        "300 Mbps Download",
+        "30 Mbps Upload",
+        "Instalimi Falas",
+        "Router WiFi 2.4G & 5G"
+      ]
+    },
+    {
+      "slug": "ultra",
+      "name": "Paketa Ultra",
+      "priceAll": 1700,
+      "unit": "/muaj",
+      "accentLabel": "",
+      "topBadge": "",
+      "down": 500,
+      "up": 50,
+      "features": [
+        "500 Mbps Download",
+        "50 Mbps Upload",
+        "Instalimi Falas",
+        "Router WiFi 2.4G & 5G"
+      ]
+    },
+    {
+      "slug": "premium",
+      "name": "Premium / Biznese",
+      "priceAll": 0,
+      "unit": "",
+      "accentLabel": "Paketa e Personalizuar",
+      "topBadge": "PREMIUM / BIZNESE",
+      "down": 1000,
+      "up": 1000,
+      "features": [
+        "1+Gbps Download",
+        "1+Gbps Upload",
+        "IP publike statike",
+        "Mbështetje teknike për rrjete të brendshme"
+      ]
+    }
+  ],
+  "pricingTitleSmall": "ÇMIMET",
+  "pricingTitleBig": "ZGJIDHNI OFERTËN MË TË\nMIRË PËR NEVOJAT TUAJA.",
+  "pricingSubtitle": "Tek Orient Net gjeni plane që bashkojnë shpejtësi, siguri dhe çmim konkurrues — gjithçka që ju nevojitet në një paketë të vetme."
+}
