@@ -51,7 +51,6 @@ function TogglePill({
       ].join(" ")}
       style={glow}
     >
-      {/* fill */}
       <span
         className="absolute inset-0 rounded-full transition-all duration-300"
         style={{
@@ -64,7 +63,6 @@ function TogglePill({
         aria-hidden="true"
       />
 
-      {/* check bubble */}
       <span
         className="relative z-10 inline-flex items-center justify-center w-7 h-7 rounded-full border"
         style={{
@@ -78,8 +76,7 @@ function TogglePill({
             : checked
             ? `color-mix(in srgb, ${color} 25%, rgba(0,0,0,0.35))`
             : "rgba(0,0,0,0.25)",
-          boxShadow:
-            checked && !disabled ? `0 0 18px ${color}80` : "none",
+          boxShadow: checked && !disabled ? `0 0 18px ${color}80` : "none",
         }}
       >
         <span
@@ -96,7 +93,6 @@ function TogglePill({
         </span>
       </span>
 
-      {/* label */}
       <span className="relative z-10 font-extrabold tracking-wide text-sm sm:text-base">
         {label}
       </span>
@@ -104,11 +100,12 @@ function TogglePill({
   );
 }
 
-
 export default function PlanRecommender({
   onRecommend,
+  showHeader = true,
 }: {
   onRecommend: (slug: string) => void;
+  showHeader?: boolean;
 }) {
   const [users, setUsers] = useState<string>("");
   const [devices, setDevices] = useState<Devices>({
@@ -116,16 +113,15 @@ export default function PlanRecommender({
     tvpc: false,
     camera: false,
   });
-const isPremiumOrBiznes = users === "premium" || users === "biznes";
-  // ✅ SMART biased recommendation
+
+  const isPremiumOrBiznes = users === "premium" || users === "biznes";
+
   const recommendedSlug = useMemo(() => {
-    // If user explicitly chooses premium/biz
     if (users === "premium" || users === "biznes") return "premium";
 
-    // Base bias: Smart most recommended
     let score = {
       standarte: 0,
-      smart: 4, // ⭐ strong default bias
+      smart: 4,
       turbo: 0,
       ultra: 0,
       premium: 0,
@@ -144,7 +140,6 @@ const isPremiumOrBiznes = users === "premium" || users === "biznes";
       if (devices.tvpc) score.turbo += 2;
       if (devices.camera) score.ultra += 2;
     } else {
-      // if user didn't select users count
       if (devices.gaming) score.turbo += 2;
       if (devices.camera) score.ultra += 1;
     }
@@ -154,36 +149,33 @@ const isPremiumOrBiznes = users === "premium" || users === "biznes";
   }, [users, devices]);
 
   function handleSubmit() {
-    // If nothing selected at all -> Smart
     const nothingSelected =
       !users && !devices.gaming && !devices.tvpc && !devices.camera;
 
     const slug = nothingSelected ? "smart" : recommendedSlug;
-
-    // ✅ This triggers the highlight + scroll
     onRecommend(slug);
   }
 
   return (
-    // ✅ ADD THIS ID
     <section id="plan-recommender" className="relative py-20">
       <div className="max-w-6xl mx-auto px-6 text-center">
-        <p className="text-sm text-[var(--muted)]">
-          <span className="text-[var(--brand)] font-semibold">Orient Net</span>,
-          pjesë e{" "}
-          <span className="text-[var(--brand)] font-semibold">ORIENT GROUP</span>{" "}
-          — të parët në Shqipëri që përdorim{" "}
-          <span className="text-[var(--brand)] font-semibold">
-            Inteligjencën Artificiale (AI)
-          </span>{" "}
-          për të rekomanduar planet më të përshtatshme sipas nevojave të klientit.
-        </p>
+        {showHeader && (
+          <>
+            <p className="text-sm text-[var(--muted)]">
+              <span className="text-[var(--brand)] font-semibold">Orient Net</span>, pjesë e{" "}
+              <span className="text-[var(--brand)] font-semibold">ORIENT GROUP</span> — të parët në Shqipëri që
+              përdorim{" "}
+              <span className="text-[var(--brand)] font-semibold">Inteligjencën Artificiale (AI)</span> për të
+              rekomanduar planet më të përshtatshme sipas nevojave të klientit.
+            </p>
 
-        <h2 className="mt-8 text-4xl md:text-6xl font-extrabold tracking-tight uppercase">
-          SI TË ZGJIDHNI OFERTËN QË JU PËRSHTATET MË SHUMË?
-        </h2>
+            <h2 className="mt-8 text-4xl md:text-6xl font-extrabold tracking-tight uppercase">
+              SI TË ZGJIDHNI OFERTËN QË JU PËRSHTATET MË SHUMË?
+            </h2>
+          </>
+        )}
 
-        <div className="mt-10">
+        <div className={showHeader ? "mt-10" : "mt-2"}>
           <div className="text-lg font-semibold">
             Sa përdorues keni në shtëpi shumicën e kohës?
           </div>
@@ -201,38 +193,40 @@ const isPremiumOrBiznes = users === "premium" || users === "biznes";
               <option value="biznes">💼 Biznes</option>
             </select>
           </div>
-        {isPremiumOrBiznes && (
-          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[var(--muted)]">
-            <span className="text-[var(--brand)]">💡</span>
-            <span>Për paketat <strong>Biznes</strong> dhe <strong>Premium</strong>, zgjedhja e pajisjeve nuk aplikohet.</span>
-          </div>
+
+          {isPremiumOrBiznes && (
+            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[var(--muted)]">
+              <span className="text-[var(--brand)]">💡</span>
+              <span>
+                Për paketat <strong>Biznes</strong> dhe <strong>Premium</strong>, zgjedhja e pajisjeve nuk aplikohet.
+              </span>
+            </div>
           )}
 
           <div className="mt-12 text-xl font-bold">
             Zgjidhni pajisjet e tjera që përdorni rregullisht në shtëpi
           </div>
 
-          {/* ✅ Toggle pill-style checkboxes (3 different neon colors) */}
           <div className="mt-6 flex flex-wrap justify-center gap-4 sm:gap-6 md:gap-10">
             <TogglePill
               checked={devices.gaming}
               onChange={(v) => setDevices((d) => ({ ...d, gaming: v }))}
               label="Playstation / Xbox"
-              color="#ff8a00" // orange
+              color="#ff8a00"
               disabled={isPremiumOrBiznes}
             />
             <TogglePill
               checked={devices.tvpc}
               onChange={(v) => setDevices((d) => ({ ...d, tvpc: v }))}
               label="Smart TV / Desktop PC"
-              color="#27bcd8" // turquoise
+              color="#27bcd8"
               disabled={isPremiumOrBiznes}
             />
             <TogglePill
               checked={devices.camera}
               onChange={(v) => setDevices((d) => ({ ...d, camera: v }))}
               label="Kamera / Pajisje të tjera"
-              color="#b26bff" // purple
+              color="#b26bff"
               disabled={isPremiumOrBiznes}
             />
           </div>
