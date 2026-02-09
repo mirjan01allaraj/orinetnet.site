@@ -2,25 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT (default) */
 :root{
-  --bg:#f7f8fb;
-  --card: rgba(255,255,255,0.75);
-  --text:#0b0c10;
-  --muted: rgba(11,12,16,0.65);
-  --brand:#27bcd8;
-  --border: rgba(0,0,0,0.10);
-
-  /* Glass tuned for light */
-  --glass-bg: rgba(255, 255, 255, 0.62);
-  --glass-stroke: rgba(0,0,0,0.10);
-  --glass-stroke-2: rgba(0,0,0,0.06);
-  --glass-hi: rgba(255,255,255,0.55);
-  --glass-shadow: 0 22px 70px rgba(0,0,0,0.18);
-}
-
-/* DARK (your current look) */
-html.dark{
   --bg:#0b0c10;
   --card:#111827;
   --text:#f5f5f5;
@@ -28,13 +10,13 @@ html.dark{
   --brand:#27bcd8;
   --border: rgba(255,255,255,0.10);
 
+  /* iOS glass system (used by Plans + Features) */
   --glass-bg: rgba(17, 24, 39, 0.38);
   --glass-stroke: rgba(255,255,255,0.14);
   --glass-stroke-2: rgba(255,255,255,0.06);
   --glass-hi: rgba(255,255,255,0.22);
   --glass-shadow: 0 28px 90px rgba(0,0,0,0.62);
 }
-
 
 html, body { height:100%; }
 html { scroll-behavior: smooth; }
