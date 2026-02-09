@@ -1,6 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import ThemeToggle from "@/components/common/ThemeToggle";
+
 
 export default function Navbar() {
   const router = useRouter();
@@ -59,6 +61,10 @@ export default function Navbar() {
           >
             Checkout
           </a>
+          <div className="flex items-center gap-3">
+           <ThemeToggle />
+          </div>
+
         </nav>
       </div>
     </header>
