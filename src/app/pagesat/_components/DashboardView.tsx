@@ -46,7 +46,6 @@ type Props = {
 const PACKAGE_LOWER = ["standarte", "smart", "turbo", "ultra"] as const;
 type PackageLower = (typeof PACKAGE_LOWER)[number];
 
-
 type LastCreatedPayment = {
   paymentId: number;
   receiptNo: string;
@@ -67,6 +66,12 @@ type ReceiptRow = {
   months_selected?: number;
   created_at?: string;
   payment_date?: string;
+
+  point_name?: string | null;
+  username?: string | null;
+  created_by_username?: string | null;
+  created_by?: string | null;
+  user_id?: number | string | null;
 };
 
 type ClientGroup = {
@@ -451,9 +456,31 @@ function sortReceiptsNewest(a: ReceiptRow, b: ReceiptRow) {
   return Number(b.id || 0) - Number(a.id || 0);
 }
 
+function receiptBelongsToUser(receipt: ReceiptRow, user: User) {
+  const userPoint = String((user as any).point_name || "").trim().toLowerCase();
+  const username = String((user as any).username || "").trim().toLowerCase();
+
+  const receiptPoint = String(receipt.point_name || "").trim().toLowerCase();
+  const receiptUsername = String(
+    receipt.created_by_username || receipt.username || receipt.created_by || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (receiptPoint && userPoint && receiptPoint === userPoint) return true;
+  if (receiptUsername && username && receiptUsername === username) return true;
+
+  if (!receiptPoint && !receiptUsername) {
+    return true;
+  }
+
+  return false;
+}
+
 export default function DashboardView(props: Props) {
   const {
     API,
+    user,
     q,
     setQ,
     customers,
@@ -542,7 +569,8 @@ export default function DashboardView(props: Props) {
       editPhone.trim() !== (selected.phone ?? "") ||
       editLocation.trim() !==
         (((selected as any).location as string | null) ?? "") ||
-      editPkg !== ((selected as any).current_package ?? "standarte"));
+      editPkg !==
+        String((selected as any).current_package ?? "standarte").toLowerCase());
 
   useEffect(() => {
     setUpdMsg(null);
@@ -555,8 +583,8 @@ export default function DashboardView(props: Props) {
     setEditPhone(selected.phone ?? "");
     setEditLocation(((selected as any).location as string | null) ?? "");
 
-    const cp = (selected as any).current_package as string | undefined;
-    if (cp && (PACKAGE_LOWER as readonly string[]).includes(cp)) {
+    const cp = String((selected as any).current_package || "").toLowerCase();
+    if ((PACKAGE_LOWER as readonly string[]).includes(cp)) {
       setEditPkg(cp as PackageLower);
     } else {
       setEditPkg("standarte");
@@ -725,7 +753,7 @@ export default function DashboardView(props: Props) {
     const last_name = editLast.trim();
     const phone = editPhone.trim();
     const location = editLocation.trim();
-    const current_package = editPkg;
+    const current_package = String(editPkg || "standarte").toLowerCase();
 
     if (!first_name || !last_name) {
       setUpdMsg("Emri dhe mbiemri janë të detyrueshëm.");
@@ -736,18 +764,25 @@ export default function DashboardView(props: Props) {
     setUpdMsg(null);
 
     try {
+      const payload = {
+        customer_id: selected.id,
+        first_name,
+        last_name,
+        phone: phone || "",
+        location: location || "",
+        current_package,
+
+        connection_date: (selected as any).connection_date || "",
+        payment_status: (selected as any).payment_status || "manual",
+        last_payment_date: (selected as any).last_payment_date || "",
+        paid_until: (selected as any).paid_until || "",
+      };
+
       const res = await fetch(`${API}/customers_update.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          customer_id: selected.id,
-          first_name,
-          last_name,
-          phone,
-          location,
-          current_package,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => null);
@@ -759,16 +794,49 @@ export default function DashboardView(props: Props) {
         return;
       }
 
-      setSelected({
-        ...selected,
-        first_name,
-        last_name,
-        phone: phone || null,
-        location: location || null,
-        current_package,
-      } as any);
+      const updatedCustomer = data?.customer
+        ? {
+            ...selected,
+            ...data.customer,
+            first_name: data.customer.first_name ?? first_name,
+            last_name: data.customer.last_name ?? last_name,
+            phone:
+              data.customer.phone !== undefined
+                ? data.customer.phone
+                : phone || null,
+            location:
+              data.customer.location !== undefined
+                ? data.customer.location
+                : location || null,
+            current_package: String(
+              data.customer.current_package || current_package
+            ).toLowerCase(),
+          }
+        : {
+            ...selected,
+            first_name,
+            last_name,
+            phone: phone || null,
+            location: location || null,
+            current_package,
+            connection_date: (selected as any).connection_date || null,
+            payment_status: (selected as any).payment_status || "manual",
+            last_payment_date: (selected as any).last_payment_date || null,
+            paid_until: (selected as any).paid_until || null,
+          };
 
-      setPkg(toUpperKey(current_package));
+      setSelected(updatedCustomer as any);
+
+      setEditFirst(first_name);
+      setEditLast(last_name);
+      setEditPhone(phone);
+      setEditLocation(location);
+      setEditPkg(
+        String((updatedCustomer as any).current_package || "standarte").toLowerCase() as PackageLower
+      );
+
+      setPkg(toUpperKey((updatedCustomer as any).current_package));
+      setQ(`${first_name} ${last_name}`);
       setUpdMsg("U përditësua me sukses.");
     } catch {
       setUpdMsg("Gabim gjatë përditësimit.");
@@ -1012,7 +1080,7 @@ export default function DashboardView(props: Props) {
     let explanationText = "";
 
     if (calculationMode === "debt_from_old_expiry") {
-      explanationTitle = "Llogaritja me vonesë";
+      explanationTitle = "Llogaritja për klient me vonesë";
       explanationText = `Klienti ka ${formatDebt(
         debtDays
       )} vonesë. Skadimi i ri llogaritet nga skadimi i fundit ${formatDateDMY(
@@ -1030,6 +1098,9 @@ export default function DashboardView(props: Props) {
       )} + ${monthsSelected} muaj = ${formatDateDMY(nextEnd)}.`;
     }
 
+    const currentEndIsExpired =
+      !!(hasPaidUntil && paidUntilRaw && diffDaysISO(paidUntilRaw, todayISO) < 0);
+
     return {
       paymentStatus,
       connectionDateLabel: hasConnectionDate
@@ -1044,8 +1115,25 @@ export default function DashboardView(props: Props) {
       monthsDuration: monthsSelected,
       explanationTitle,
       explanationText,
+      currentEndIsExpired,
     };
   }, [selected, monthsSelected, today?.date]);
+
+  const todayReceiptsFiltered = useMemo(() => {
+    const rows = ((today?.receipts || []) as ReceiptRow[]).filter((r) =>
+      receiptBelongsToUser(r, user)
+    );
+    return rows.sort(sortReceiptsNewest);
+  }, [today, user]);
+
+  const todayTotalFiltered = useMemo(
+    () =>
+      todayReceiptsFiltered.reduce(
+        (sum, r) => sum + Number(r.amount_paid || 0),
+        0
+      ),
+    [todayReceiptsFiltered]
+  );
 
   const receiptsData = useMemo(() => {
     if (periodPreset === "today") {
@@ -1053,20 +1141,32 @@ export default function DashboardView(props: Props) {
         label: "Sot",
         from: today?.date || isoToday(),
         to: today?.date || isoToday(),
-        total: Number(today?.total || 0),
-        receipts: (today?.receipts || []) as ReceiptRow[],
+        total: todayTotalFiltered,
+        receipts: todayReceiptsFiltered,
       };
     }
-    return periodData;
-  }, [periodPreset, today, periodData]);
+
+    const filteredRows = (periodData.receipts || []).filter((r) =>
+      receiptBelongsToUser(r, user)
+    );
+
+    return {
+      ...periodData,
+      total: filteredRows.reduce(
+        (sum, r) => sum + Number(r.amount_paid || 0),
+        0
+      ),
+      receipts: filteredRows,
+    };
+  }, [periodPreset, today, todayReceiptsFiltered, todayTotalFiltered, periodData, user]);
 
   const sourceReceipts = useMemo(() => {
     if (viewMode === "clients") {
-      return allClientsReceipts;
+      return allClientsReceipts.filter((r) => receiptBelongsToUser(r, user));
     }
 
     return receiptsSearch.trim().length >= 2
-      ? globalSearchReceipts
+      ? globalSearchReceipts.filter((r) => receiptBelongsToUser(r, user))
       : ((receiptsData?.receipts || []) as ReceiptRow[]);
   }, [
     viewMode,
@@ -1074,6 +1174,7 @@ export default function DashboardView(props: Props) {
     receiptsSearch,
     globalSearchReceipts,
     receiptsData,
+    user,
   ]);
 
   const filteredReceipts = useMemo(() => {
@@ -1227,16 +1328,16 @@ export default function DashboardView(props: Props) {
 
   return (
     <>
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="font-semibold">Kërko klientin</div>
-          <div className="text-white/60 text-sm mt-1">
+          <div className="mt-1 text-sm text-white/60">
             Shkruaj të paktën 2 shkronja.
           </div>
 
           <div className="mt-3 flex gap-2">
             <input
-              className="flex-1 rounded-xl bg-black/40 border border-white/10 px-4 py-3 outline-none"
+              className="flex-1 rounded-xl border border-white/10 bg-black/40 px-4 py-3 outline-none"
               placeholder="Emër / Mbiemër / Telefon"
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -1254,18 +1355,18 @@ export default function DashboardView(props: Props) {
             )}
           </div>
 
-          <div className="mt-3 text-white/60 text-sm">
+          <div className="mt-3 text-sm text-white/60">
             {searchBusy ? "Duke kërkuar…" : ""}
           </div>
 
           {!selected ? (
-            <div className="mt-3 max-h-72 overflow-auto space-y-2">
+            <div className="mt-3 max-h-72 space-y-2 overflow-auto">
               {customers.map((c) => {
                 const meta = getStatusMeta(c);
                 return (
                   <button
                     key={c.id}
-                    className="w-full text-left rounded-xl border border-white/10 bg-black/30 px-4 py-3 hover:bg-black/40"
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-left hover:bg-black/40"
                     onClick={() => {
                       setSelected(c);
                       setQ(`${c.first_name} ${c.last_name}`);
@@ -1276,10 +1377,10 @@ export default function DashboardView(props: Props) {
                         <div className="font-medium">
                           {c.first_name} {c.last_name}
                         </div>
-                        <div className="text-white/60 text-sm">
+                        <div className="text-sm text-white/60">
                           {c.phone || "Pa numër telefoni"}
                         </div>
-                        <div className="text-white/45 text-xs mt-1">
+                        <div className="mt-1 text-xs text-white/45">
                           {(c as any).location || "Pa location"}
                         </div>
                       </div>
@@ -1295,23 +1396,23 @@ export default function DashboardView(props: Props) {
               })}
 
               {!customers.length && q.trim().length >= 2 && !searchBusy && (
-                <div className="text-white/50 text-sm">
+                <div className="text-sm text-white/50">
                   Nuk u gjet asnjë klient.
                 </div>
               )}
             </div>
           ) : (
             <div className="mt-3 space-y-2">
-              <div className="w-full text-left rounded-xl border border-white/10 bg-black/30 px-4 py-3">
+              <div className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-left">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="font-medium">
                       {selected.first_name} {selected.last_name}
                     </div>
-                    <div className="text-white/60 text-sm">
+                    <div className="text-sm text-white/60">
                       {selected.phone || "Pa numër telefoni"}
                     </div>
-                    <div className="text-white/45 text-xs mt-1">
+                    <div className="mt-1 text-xs text-white/45">
                       {((selected as any).location as string | null) ||
                         "Pa location"}
                     </div>
@@ -1329,36 +1430,36 @@ export default function DashboardView(props: Props) {
 
               <div className="mt-2 rounded-xl border border-white/10 bg-black/20 p-4">
                 <div className="font-semibold">Të dhënat e klientit</div>
-                <div className="text-white/60 text-sm mt-1">
+                <div className="mt-1 text-sm text-white/60">
                   Ndrysho dhe ruaj të dhënat e klientit.
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
-                    <div className="text-white/60 text-sm">Emri</div>
+                    <div className="text-sm text-white/60">Emri</div>
                     <input
-                      className="mt-1 w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3"
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3"
                       value={editFirst}
                       onChange={(e) => setEditFirst(e.target.value)}
                     />
                   </div>
 
                   <div>
-                    <div className="text-white/60 text-sm">Mbiemri</div>
+                    <div className="text-sm text-white/60">Mbiemri</div>
                     <input
-                      className="mt-1 w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3"
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3"
                       value={editLast}
                       onChange={(e) => setEditLast(e.target.value)}
                     />
                   </div>
 
                   <div>
-                    <div className="text-white/60 text-sm">Telefoni</div>
+                    <div className="text-sm text-white/60">Telefoni</div>
                     <input
                       className={[
-                        "mt-1 w-full rounded-xl bg-black/40 border px-4 py-3 transition",
+                        "mt-1 w-full rounded-xl border bg-black/40 px-4 py-3 transition",
                         flashMissing && !editPhone.trim()
-                          ? "border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.6)] animate-pulse"
+                          ? "animate-pulse border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.6)]"
                           : "border-white/10",
                       ].join(" ")}
                       value={editPhone}
@@ -1368,12 +1469,12 @@ export default function DashboardView(props: Props) {
                   </div>
 
                   <div>
-                    <div className="text-white/60 text-sm">Location</div>
+                    <div className="text-sm text-white/60">Location</div>
                     <input
                       className={[
-                        "mt-1 w-full rounded-xl bg-black/40 border px-4 py-3 transition",
+                        "mt-1 w-full rounded-xl border bg-black/40 px-4 py-3 transition",
                         flashMissing && !editLocation.trim()
-                          ? "border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.6)] animate-pulse"
+                          ? "animate-pulse border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.6)]"
                           : "border-white/10",
                       ].join(" ")}
                       value={editLocation}
@@ -1383,9 +1484,9 @@ export default function DashboardView(props: Props) {
                   </div>
 
                   <div className="md:col-span-2">
-                    <div className="text-white/60 text-sm">Paketa aktuale</div>
+                    <div className="text-sm text-white/60">Paketa aktuale</div>
                     <select
-                      className="mt-1 w-full rounded-xl bg-black/40 border border-white/10 px-3 py-3"
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3"
                       value={editPkg}
                       onChange={(e) => setEditPkg(e.target.value as PackageLower)}
                     >
@@ -1402,10 +1503,10 @@ export default function DashboardView(props: Props) {
                   onClick={updateCustomer}
                   disabled={updBusy || !selected || !hasChanges}
                   className={[
-                    "mt-4 w-full rounded-xl border border-white/10 py-3 font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed",
+                    "mt-4 w-full rounded-xl border border-white/10 py-3 font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                     hasChanges
                       ? "bg-[#27BCD8] text-black shadow-[0_0_24px_rgba(39,188,216,0.35)] hover:brightness-110"
-                      : "bg-white/10 hover:bg-white/15 text-white/80",
+                      : "bg-white/10 text-white/80 hover:bg-white/15",
                     hasChanges
                       ? "animate-[pulseSoft_1.4s_ease-in-out_infinite]"
                       : "",
@@ -1446,15 +1547,15 @@ export default function DashboardView(props: Props) {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="font-semibold">Krijo pagesë (Cash)</div>
 
-          <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 relative">
+          <div className="relative mt-3 rounded-xl border border-white/10 bg-black/30 p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-white/60 text-sm">Klienti i zgjedhur</div>
+              <div className="text-sm text-white/60">Klienti i zgjedhur</div>
 
               {selected && (
                 <div className="relative" data-client-menu="wrap">
                   <button
                     type="button"
-                    className="w-9 h-9 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 flex items-center justify-center"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/90 hover:bg-white/10"
                     onClick={() => setClientMenuOpen((v) => !v)}
                     title="Opsione"
                     aria-label="Opsione"
@@ -1463,10 +1564,10 @@ export default function DashboardView(props: Props) {
                   </button>
 
                   {clientMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-44 rounded-xl border border-white/10 bg-black/90 backdrop-blur p-1 shadow-lg z-20">
+                    <div className="absolute right-0 z-20 mt-2 w-44 rounded-xl border border-white/10 bg-black/90 p-1 shadow-lg backdrop-blur">
                       <button
                         type="button"
-                        className="w-full text-left rounded-lg px-3 py-2 text-rose-300 hover:bg-rose-500/15 hover:text-rose-200 disabled:opacity-60"
+                        className="w-full rounded-lg px-3 py-2 text-left text-rose-300 hover:bg-rose-500/15 hover:text-rose-200 disabled:opacity-60"
                         onClick={deleteSelectedCustomer}
                         disabled={updBusy}
                       >
@@ -1484,70 +1585,100 @@ export default function DashboardView(props: Props) {
                   <div className="font-medium">
                     {selected.first_name} {selected.last_name}
                   </div>
-                  <div className="text-white/60 text-sm">
+                  <div className="text-sm text-white/60">
                     {selected.phone || "Pa numër telefoni"}
                   </div>
                 </>
               ) : (
-                <div className="text-white/50 text-sm">
+                <div className="text-sm text-white/50">
                   Zgjidh një klient nga lista.
                 </div>
               )}
             </div>
 
             {selected && paymentInfo && (
-              <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-white/60 shrink-0">
-                      Pagesa e fundit:
-                    </span>
-                    <span
-                      className={`font-semibold ${
-                        paymentInfo.paymentStatus === "never_paid"
-                          ? "text-amber-300"
-                          : paymentInfo.paymentStatus === "free"
-                            ? "text-sky-300"
-                            : "text-white"
-                      }`}
-                    >
+              <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
+                    <div className="text-[13px] font-semibold uppercase tracking-wide text-amber-300">
+                      Pagesa e fundit
+                    </div>
+                    <div className="mt-1 text-lg font-bold text-orange-300">
                       {paymentInfo.lastPayLabel}
-                    </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-white/60 shrink-0">
-                      Përfundimi aktual:
-                    </span>
-                    <span className="font-semibold">
+                  <div
+                    className={[
+                      "rounded-xl border px-4 py-3",
+                      paymentInfo.currentEndIsExpired
+                        ? "border-red-400/20 bg-red-500/10"
+                        : "border-emerald-400/20 bg-emerald-500/10",
+                    ].join(" ")}
+                  >
+                    <div
+                      className={[
+                        "text-[13px] font-semibold uppercase tracking-wide",
+                        paymentInfo.currentEndIsExpired
+                          ? "text-red-300"
+                          : "text-emerald-300",
+                      ].join(" ")}
+                    >
+                      Përfundimi aktual
+                    </div>
+                    <div
+                      className={[
+                        "mt-1 text-lg font-bold",
+                        paymentInfo.currentEndIsExpired
+                          ? "text-red-300"
+                          : "text-emerald-300",
+                      ].join(" ")}
+                    >
                       {paymentInfo.paidUntilLabel}
-                    </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-white/60 shrink-0">Vonesë:</span>
-                    <span
-                      className={`font-semibold ${
-                        paymentInfo.hasDebt ? "text-red-400" : "text-white/80"
-                      }`}
+                  <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 px-4 py-3">
+                    <div className="text-[13px] font-semibold uppercase tracking-wide text-sky-300">
+                      Përfundimi i radhës
+                    </div>
+                    <div className="mt-1 text-lg font-bold text-sky-200">
+                      {paymentInfo.nextEndLabel}
+                    </div>
+                  </div>
+
+                  <div
+                    className={[
+                      "rounded-xl border px-4 py-3 transition-all",
+                      paymentInfo.hasDebt
+                        ? "border-red-500/25 bg-red-500/12"
+                        : "border-white/10 bg-white/5",
+                    ].join(" ")}
+                  >
+                    <div
+                      className={[
+                        "text-[13px] font-semibold uppercase tracking-wide",
+                        paymentInfo.hasDebt ? "text-red-300" : "text-white",
+                      ].join(" ")}
+                    >
+                      Vonesë
+                    </div>
+                    <div
+                      className={[
+                        "mt-1 font-bold",
+                        paymentInfo.hasDebt
+                          ? "text-2xl text-red-300"
+                          : "text-lg text-white",
+                      ].join(" ")}
                     >
                       {paymentInfo.debtText}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-white/60 shrink-0">
-                      Përfundimi i radhës:
-                    </span>
-                    <span className="font-semibold">
-                      {paymentInfo.nextEndLabel}
-                    </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-2 text-xs text-white/50">
+                <div className="mt-3 text-sm text-white/60">
                   Data e lidhjes:{" "}
-                  <span className="text-white/70">
+                  <span className="text-white/80">
                     {paymentInfo.connectionDateLabel}
                   </span>
                 </div>
@@ -1582,9 +1713,9 @@ export default function DashboardView(props: Props) {
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div>
-              <div className="text-white/60 text-sm">Paketa</div>
+              <div className="text-sm text-white/60">Paketa</div>
               <select
-                className="mt-1 w-full rounded-xl bg-black/40 border border-white/10 px-3 py-3"
+                className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3"
                 value={pkg}
                 onChange={(e) =>
                   setPkg(e.target.value as (typeof PACKAGES)[number]["key"])
@@ -1599,8 +1730,17 @@ export default function DashboardView(props: Props) {
             </div>
 
             <div>
-              <div className="text-white/60 text-sm">Muaj</div>
+              <div className="text-sm text-white/60">Muaj</div>
               <div className="mt-1 flex flex-wrap gap-2">
+                <input
+                  className="w-[120px] rounded-xl border border-white/10 bg-black/40 px-3 py-2"
+                  type="number"
+                  min={1}
+                  placeholder="p.sh. 2"
+                  value={monthsInput}
+                  onChange={(e) => onMonthsInputChange(e.target.value)}
+                />
+
                 {MONTH_PRESETS.map((m) => (
                   <button
                     key={m}
@@ -1615,18 +1755,9 @@ export default function DashboardView(props: Props) {
                     {m}
                   </button>
                 ))}
-
-                <input
-                  className="ml-auto w-[120px] rounded-xl bg-black/40 border border-white/10 px-3 py-2"
-                  type="number"
-                  min={1}
-                  placeholder="p.sh. 2"
-                  value={monthsInput}
-                  onChange={(e) => onMonthsInputChange(e.target.value)}
-                />
               </div>
 
-              <div className="text-white/40 text-xs mt-1">
+              <div className="mt-1 text-xs text-white/40">
                 Preset: 3/6/12 (me ofertë). Ose vendos muajt manualisht
                 (1,2,4,5…).
               </div>
@@ -1635,16 +1766,16 @@ export default function DashboardView(props: Props) {
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div>
-              <div className="text-white/60 text-sm">Shuma e pritshme</div>
+              <div className="text-sm text-white/60">Shuma e pritshme</div>
               <div className="mt-1 rounded-xl border border-white/10 bg-black/30 px-4 py-3 font-semibold">
                 {expectedAmount.toLocaleString("sq-AL")} L
               </div>
             </div>
 
             <div>
-              <div className="text-white/60 text-sm">Shuma e paguar</div>
+              <div className="text-sm text-white/60">Shuma e paguar</div>
               <input
-                className="mt-1 w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3"
+                className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3"
                 type="number"
                 value={paidAmount}
                 onChange={(e) =>
@@ -1657,9 +1788,9 @@ export default function DashboardView(props: Props) {
           {paidAmount !== expectedAmount && (
             <div className="mt-4 grid grid-cols-1 gap-3">
               <div>
-                <div className="text-white/60 text-sm">Arsyeja (kërkohet)</div>
+                <div className="text-sm text-white/60">Arsyeja (kërkohet)</div>
                 <select
-                  className="mt-1 w-full rounded-xl bg-black/40 border border-white/10 px-3 py-3"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                 >
@@ -1673,11 +1804,11 @@ export default function DashboardView(props: Props) {
               </div>
 
               <div>
-                <div className="text-white/60 text-sm">
+                <div className="text-sm text-white/60">
                   Shënim {reason === "Tjetër" ? "(kërkohet)" : "(opsionale)"}
                 </div>
                 <input
-                  className="mt-1 w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Shkruaj shënimin…"
@@ -1687,7 +1818,7 @@ export default function DashboardView(props: Props) {
           )}
 
           <button
-            className="mt-5 w-full rounded-xl bg-[#27BCD8] text-black font-semibold py-3 disabled:opacity-60"
+            className="mt-5 w-full rounded-xl bg-[#27BCD8] py-3 font-semibold text-black disabled:opacity-60"
             disabled={!selected || saving}
             onClick={confirmPayment}
           >
@@ -1699,12 +1830,12 @@ export default function DashboardView(props: Props) {
       </div>
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative" ref={periodWrapRef}>
               <button
                 type="button"
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 min-w-[220px]"
+                className="min-w-[220px] rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10"
                 onClick={() => setPeriodOpen((v) => !v)}
               >
                 <div className="text-xs uppercase tracking-wide text-white/50">
@@ -1712,7 +1843,7 @@ export default function DashboardView(props: Props) {
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <span className="font-semibold">{receiptsData.label}</span>
-                  <span className="text-white/50 text-sm">▼</span>
+                  <span className="text-sm text-white/50">▼</span>
                 </div>
               </button>
 
@@ -1768,27 +1899,27 @@ export default function DashboardView(props: Props) {
 
                     <div className="mt-3 grid grid-cols-1 gap-3">
                       <div>
-                        <div className="text-white/60 text-sm">From</div>
+                        <div className="text-sm text-white/60">From</div>
                         <input
                           type="date"
-                          className="mt-1 w-full rounded-xl bg-black/40 border border-white/10 px-3 py-3"
+                          className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3"
                           value={dateFrom}
                           onChange={(e) => setDateFrom(e.target.value)}
                         />
                       </div>
 
                       <div>
-                        <div className="text-white/60 text-sm">To</div>
+                        <div className="text-sm text-white/60">To</div>
                         <input
                           type="date"
-                          className="mt-1 w-full rounded-xl bg-black/40 border border-white/10 px-3 py-3"
+                          className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3"
                           value={dateTo}
                           onChange={(e) => setDateTo(e.target.value)}
                         />
                       </div>
                     </div>
 
-                    <div className="mt-3 text-white/50 text-xs">
+                    <div className="mt-3 text-xs text-white/50">
                       Nëse plotësohet vetëm From, ngarkohen faturat nga ajo datë e
                       tutje. Nëse From dhe To janë të njëjta, shfaqen vetëm faturat
                       e asaj date.
@@ -1818,7 +1949,7 @@ export default function DashboardView(props: Props) {
 
             <input
               type="text"
-              className="w-full sm:w-[320px] rounded-2xl bg-black/40 border border-white/10 px-4 py-3 outline-none"
+              className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 outline-none sm:w-[320px]"
               placeholder={
                 viewMode === "clients"
                   ? "Kërko klient / tel / client ID"
@@ -1883,7 +2014,7 @@ export default function DashboardView(props: Props) {
 
           <div className="flex flex-wrap gap-3">
             <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-              <div className="text-white/50 text-xs uppercase tracking-wide">
+              <div className="text-xs uppercase tracking-wide text-white/50">
                 Totali
               </div>
               <div className="mt-1 font-semibold">
@@ -1892,14 +2023,14 @@ export default function DashboardView(props: Props) {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-              <div className="text-white/50 text-xs uppercase tracking-wide">
+              <div className="text-xs uppercase tracking-wide text-white/50">
                 {viewMode === "clients" ? "Klientë" : "Fatura"}
               </div>
               <div className="mt-1 font-semibold">{displayedCount}</div>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-              <div className="text-white/50 text-xs uppercase tracking-wide">
+              <div className="text-xs uppercase tracking-wide text-white/50">
                 Mesatarja
               </div>
               <div className="mt-1 font-semibold">
@@ -1935,14 +2066,14 @@ export default function DashboardView(props: Props) {
           </div>
         </div>
 
-        <div className="mt-3 text-white/60 text-sm">
+        <div className="mt-3 text-sm text-white/60">
           {viewMode === "clients" ? (
             <span className="text-cyan-300/80">
-              Po shfaqen të gjithë klientët me pagesa në DB, pavarësisht periudhës së zgjedhur.
+              Po shfaqen vetëm klientët me pagesa që i përkasin këtij useri / point-i.
             </span>
           ) : receiptsSearch.trim().length >= 2 ? (
             <span className="text-cyan-300/80">
-              Duke kërkuar në të gjitha faturat, pavarësisht periudhës së zgjedhur.
+              Duke kërkuar në faturat që i përkasin këtij useri / point-i.
             </span>
           ) : receiptsData.from && receiptsData.to ? (
             <>
@@ -2007,7 +2138,7 @@ export default function DashboardView(props: Props) {
                     {Number(r.amount_paid || 0).toLocaleString("sq-AL")} L
                   </div>
                 </div>
-                <div className="text-white/60 text-sm">
+                <div className="text-sm text-white/60">
                   {highlightMatch(r.customer_name || "Klient", receiptsSearch)} •{" "}
                   {highlightMatch(
                     r.customer_phone || "Pa numër",
@@ -2021,7 +2152,7 @@ export default function DashboardView(props: Props) {
             ))}
 
             {!filteredReceipts.length && !receiptsLoading && (
-              <div className="text-white/50 text-sm">
+              <div className="text-sm text-white/50">
                 {receiptsSearch.trim()
                   ? "S’u gjet asnjë faturë për këtë kërkim."
                   : "S’ka asnjë faturë për këtë periudhë."}
@@ -2029,7 +2160,7 @@ export default function DashboardView(props: Props) {
             )}
 
             {receiptsLoading && (
-              <div className="text-white/50 text-sm">Duke ngarkuar faturat…</div>
+              <div className="text-sm text-white/50">Duke ngarkuar faturat…</div>
             )}
           </div>
         ) : (
@@ -2039,11 +2170,11 @@ export default function DashboardView(props: Props) {
               return (
                 <div
                   key={group.key}
-                  className="rounded-xl border border-white/10 bg-black/30 overflow-hidden"
+                  className="overflow-hidden rounded-xl border border-white/10 bg-black/30"
                 >
                   <button
                     type="button"
-                    className="w-full px-4 py-3 text-left hover:bg-black/40 transition"
+                    className="w-full px-4 py-3 text-left transition hover:bg-black/40"
                     onClick={() => toggleClientGroup(group.key)}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -2052,7 +2183,7 @@ export default function DashboardView(props: Props) {
                           {group.customer_id !== undefined &&
                           group.customer_id !== null ? (
                             <>
-                              <span className="text-white/40 mr-2">
+                              <span className="mr-2 text-white/40">
                                 #{group.customer_id}
                               </span>
                               {highlightMatch(group.customer_name, receiptsSearch)}
@@ -2061,7 +2192,7 @@ export default function DashboardView(props: Props) {
                             highlightMatch(group.customer_name, receiptsSearch)
                           )}
                         </div>
-                        <div className="text-white/60 text-sm">
+                        <div className="text-sm text-white/60">
                           {highlightMatch(
                             group.customer_phone || "Pa numër",
                             receiptsSearch
@@ -2069,23 +2200,23 @@ export default function DashboardView(props: Props) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                      <div className="grid grid-cols-2 gap-3 text-sm lg:grid-cols-3">
                         <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                          <div className="text-white/50 text-xs uppercase">
+                          <div className="text-xs uppercase text-white/50">
                             Fatura
                           </div>
                           <div className="font-semibold">{group.receipt_count}</div>
                         </div>
                         <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                          <div className="text-white/50 text-xs uppercase">
+                          <div className="text-xs uppercase text-white/50">
                             Totali
                           </div>
                           <div className="font-semibold">
                             {group.total_paid.toLocaleString("sq-AL")} L
                           </div>
                         </div>
-                        <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 col-span-2 lg:col-span-1">
-                          <div className="text-white/50 text-xs uppercase">
+                        <div className="col-span-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 lg:col-span-1">
+                          <div className="text-xs uppercase text-white/50">
                             Fatura e fundit
                           </div>
                           <div className="font-semibold">
@@ -2097,7 +2228,7 @@ export default function DashboardView(props: Props) {
                   </button>
 
                   {isOpen && (
-                    <div className="border-t border-white/10 p-3 space-y-2">
+                    <div className="space-y-2 border-t border-white/10 p-3">
                       {group.receipts.map((r) => (
                         <a
                           key={`${group.key}-${r.id}`}
@@ -2116,7 +2247,7 @@ export default function DashboardView(props: Props) {
                               {Number(r.amount_paid || 0).toLocaleString("sq-AL")} L
                             </div>
                           </div>
-                          <div className="text-white/60 text-sm">
+                          <div className="text-sm text-white/60">
                             {highlightMatch(r.package_code || "—", receiptsSearch)} •{" "}
                             {r.months_selected || 0} muaj •{" "}
                             {formatDateTime(r.created_at || r.payment_date || null)}
@@ -2130,7 +2261,7 @@ export default function DashboardView(props: Props) {
             })}
 
             {!clientGroups.length && !receiptsLoading && !clientNoPaymentsMsg && (
-              <div className="text-white/50 text-sm">
+              <div className="text-sm text-white/50">
                 {receiptsSearch.trim()
                   ? "S’u gjet asnjë klient me fatura për këtë kërkim."
                   : "S’ka klientë me fatura të regjistruara në sistem."}
@@ -2138,7 +2269,7 @@ export default function DashboardView(props: Props) {
             )}
 
             {receiptsLoading && (
-              <div className="text-white/50 text-sm">Duke ngarkuar klientët…</div>
+              <div className="text-sm text-white/50">Duke ngarkuar klientët…</div>
             )}
           </div>
         )}
