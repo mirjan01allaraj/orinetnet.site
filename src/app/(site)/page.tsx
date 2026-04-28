@@ -78,7 +78,7 @@ export default function HomePage() {
                     <p className="text-sm text-[var(--muted)] leading-relaxed">
                       <span className="text-[var(--brand)] font-semibold">Orient Net</span>, pjesë e{" "}
                       <span className="text-[var(--brand)] font-semibold">ORIENT GROUP</span>{" "}
-                      — rekomandim AI inteligjent sipas nevojave tuaja.
+                      — rekomandimi AI inteligjent sipas nevojave tuaja.
                     </p>
 
                     <h2 className="mt-6 text-3xl font-extrabold tracking-tight uppercase">
