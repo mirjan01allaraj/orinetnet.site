@@ -20,7 +20,7 @@ export const metadata = {
   metadataBase: new URL("https://orientnet.al"),
   openGraph: {
     title: "Orient Net ISP",
-    description: "Internet i shpejtë & stabil për familje dhe biznese. Instalimi falas, router dual-band, suport 24/7.",
+    description: "Interneti me i  shpejtë & stabil për familje dhe biznese. Instalimi falas, router dual-band, suport 24/7.",
     url: "https://orientnet.al",
     siteName: "Orient Net",
     images: [{ url: "//og-image.png", width: 1200, height: 630 }],
