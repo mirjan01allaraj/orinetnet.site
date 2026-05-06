@@ -68,7 +68,7 @@ export default function Hero({
             </p>
 
             <h1 className="text-4xl md:text-5xl font-extrabold mt-3 leading-tight">
-              Interneti me i shpejtë & stabil,
+              Interneti me ishpejtë & stabil,
               <span className="text-[var(--brand)]"> për familje dhe biznese</span>.
             </h1>
 
