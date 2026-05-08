@@ -11,6 +11,7 @@ import Coverage from "@/components/sections/Coverage";
 import FAQ from "@/components/sections/FAQ";
 import InfoKontakt from "@/components/sections/InfoKontakt";
 
+
 function cx(...arr: Array<string | false | undefined>) {
   return arr.filter(Boolean).join(" ");
 }

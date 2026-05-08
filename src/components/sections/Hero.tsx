@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import PillSweepRow from "@/components/common/PillSweepRow";
+import HyperspeedHeroBackground from "@/components/HyperspeedHeroBackground";
 import { getIncluded } from "@/lib/content";
 
 export default function Hero({
@@ -45,21 +46,14 @@ export default function Hero({
   }
 
   return (
-    <section className="relative">
-      {/* background glow */}
-      <div className="absolute inset-0 -z-10">
-        <div
-          className="absolute inset-0 opacity-40"
-          style={{
-            background:
-              "radial-gradient(900px 500px at 20% 10%, rgba(39,188,216,.35), transparent 60%)," +
-              "radial-gradient(900px 500px at 80% 20%, rgba(39,188,216,.18), transparent 55%)",
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-[var(--bg)]" />
-      </div>
+    <section className="relative min-h-[620px] overflow-hidden bg-black text-white">
+      {/* Hyperspeed background - all devices */}
+      <HyperspeedHeroBackground />
 
-      <div className="max-w-6xl mx-auto px-6 pt-14 pb-10">
+      {/* Extra readability overlay */}
+      <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-black/10 via-transparent to-[var(--bg)]" />
+
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pt-20 pb-24">
         <div className="grid lg:grid-cols-2 gap-10 items-center">
           {/* LEFT (always visible, including mobile) */}
           <div>
@@ -68,29 +62,34 @@ export default function Hero({
             </p>
 
             <h1 className="text-4xl md:text-5xl font-extrabold mt-3 leading-tight">
-              Interneti me ishpejtë & stabil,
-              <span className="text-[var(--brand)]"> për familje dhe biznese</span>.
+              Interneti më i shpejtë & stabil,
+              <span className="text-[var(--brand)]">
+                {" "}
+                për familje dhe biznese
+              </span>
+              .
             </h1>
 
             <p className="text-[var(--muted)] mt-4 text-lg max-w-xl">
-              Paketat me instalim falas, router dual-band 2.4G & 5G dhe suport teknik 24/7.
+              Paketat me instalim falas, router dual-band 2.4G & 5G dhe suport
+              teknik 24/7.
             </p>
 
             <div className="mt-7 flex flex-wrap gap-3">
-            <button
+              <button
                 type="button"
                 onClick={() => {
                   const el = document.getElementById("plans");
                   el?.scrollIntoView({ behavior: "smooth", block: "start" });
-               }}
-              className="px-5 py-3 rounded-xl bg-[var(--brand)] text-black font-semibold"
-                >
+                }}
+                className="px-5 py-3 rounded-xl bg-[var(--brand)] text-black font-semibold"
+              >
                 Shiko Paketat
               </button>
 
               <a
                 className="px-5 py-3 rounded-xl border border-[var(--border)] hover:bg-white/5"
-                 href="/apliko"
+                href="/apliko"
               >
                 Apliko Tani
               </a>
@@ -116,7 +115,7 @@ export default function Hero({
           >
             <div className={`hero-flip-inner ${flipped ? "is-flipped" : ""}`}>
               {/* FRONT */}
-              <div className="hero-flip-face hero-flip-front rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
+              <div className="hero-flip-face hero-flip-front rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 backdrop-blur p-6">
                 <h3 className="font-bold text-lg">
                   Në çdo paketë përfshihen: Instalimi FALAS • Wi-Fi 4G & 5G
                 </h3>
@@ -130,8 +129,10 @@ export default function Hero({
                   ))}
                 </ul>
 
-                <div className="mt-6 p-4 rounded-xl border border-[var(--border)] bg-black/20">
-                  <div className="text-sm text-[var(--muted)]">Paketa më e zgjedhur</div>
+                <div className="mt-6 p-4 rounded-xl border border-[var(--border)] bg-black/30">
+                  <div className="text-sm text-[var(--muted)]">
+                    Paketa më e zgjedhur
+                  </div>
                   <div className="mt-1 font-bold text-xl">TURBO 300 / 30</div>
 
                   <button
@@ -149,7 +150,7 @@ export default function Hero({
               </div>
 
               {/* BACK */}
-              <div className="hero-flip-face hero-flip-back rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
+              <div className="hero-flip-face hero-flip-back rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 backdrop-blur p-6">
                 <div className="h-full w-full flex items-center justify-center">
                   <div className="text-center">
                     <div className="text-[var(--brand)] uppercase tracking-[0.3em] text-xs">
